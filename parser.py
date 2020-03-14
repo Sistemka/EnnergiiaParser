@@ -12,7 +12,6 @@ import grequests
 import requests
 import io
 import base64
-from pymongo import MongoClient
 from api import image_manager
 
 proxies = set()
@@ -24,8 +23,6 @@ items_visited_href = set()
 
 site = 'https://www.ennergiia.com/'
 
-client = MongoClient('127.0.0.1', 27017)
-db = client.parsed_data
 
 PORT_REGEX = r'>([1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])<'
 IP_REGEX = r'>(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)<'
@@ -66,10 +63,10 @@ def fill_proxies(fill_proxy=False):
     proxies.clear()
     proxies.update(proxies_list)
     responses = grequests.map([grequests.get(
-        "http://167.172.189.250:8000/", proxies={'http': proxy}, timeout=2) for proxy in proxies])
+        "http://165.22.95.38/", proxies={'http': proxy}, timeout=5) for proxy in proxies])
     for response, proxy in zip(responses, list(proxies)):
         try:
-            if response.status_code != 200:
+            if response is None:
                 proxies.remove(proxy)
         except:
             proxies.remove(proxy)
@@ -101,11 +98,21 @@ top = {'свитер',
        'пиджак',
        'плащ',
        'жилет',
-       'платье',}
+       'платье',
+       'джемпер',
+       'майка',
+       'кардиган',
+       'болеро',
+       'водолазка',
+       'пуловер',
+       'футболка-поло',
+       'блузка',}
 
 bottom = {'джинсы',
           'брюки',
-          'шорты', }
+          'шорты',
+          'шорты-плавки',
+          'леггинсы' }
 
 
 def check_sex(text: str):
@@ -154,17 +161,19 @@ def add_catalogues(response):
 
 
 def add_items(response):
-    if response is not None:
+    if response is not None and response.status_code == 200:
         batch = []
         soup = BeautifulSoup(response.text, 'html.parser')
         dicted_json = json.loads(soup.find('div', {'id': "data", 'role': "presentation"}).text.replace(
             'window.__PRELOADED_STATE__=', ''))
         items = dicted_json.get('productListStore').get('list')
+        if len(items)==0:
+            print("Empty: %s" % str(response.url))
         for item in items:
             product_info = {"image": None, 'цена': None,
                             'пол': None, 'цвет': None, 'бренд': None, 'link': None, 'type': None}
             product_info['type'] = check_type(item.get('productName'))
-            if product_info['type']:
+            if product_info['type'] and product_info['type'] != 'shoes':
                 product_info['link'] = site + 'products/' + item.get('slug')
                 for prop in item.get('listingProperties'):
                     prop_name = prop.get("name").lower()
@@ -178,6 +187,8 @@ def add_items(response):
                     '%s/%s/%s/0/%s.jpg' % (*[image_props.get(value) for value in [
                                                             'baseUrl', 'client', 'imageGroupId']], image_props.get('sizes').get('big')))
                 image_manager.upload_image_bytes(product_info)
+            else:
+                print(item.get('productName'))
 
 
 def run(site: str, get_proxies: bool = False):
