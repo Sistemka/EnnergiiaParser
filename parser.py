@@ -1,5 +1,6 @@
 from gevent import monkey as curious_george
 curious_george.patch_all(thread=False, select=False)
+# import face_recognition
 import json
 import uuid
 import os
@@ -12,7 +13,10 @@ import grequests
 import requests
 import io
 import base64
+import cv2
+import numpy as np
 from api import image_manager
+
 
 proxies = set()
 
@@ -73,6 +77,29 @@ def fill_proxies(fill_proxy=False):
     print(proxies)
 
 
+def face_detect_from_bytes(bytesIOobject):
+    face_cascades = [cv2.CascadeClassifier(os.path.join(
+        'models', model_name)) for model_name in os.listdir('models')]
+    nparr = np.fromstring(bytesIOobject.read(), np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces_from_all_models = [face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(30, 30),
+        flags=cv2.CASCADE_SCALE_IMAGE
+    ) for face_cascade in face_cascades]
+    return len(list(filter(lambda fc: len(fc) != 0, faces_from_all_models))) > 1
+
+
+# def face_detect_from_bytes2(bytesIOobject):
+#     nparr = np.fromstring(bytesIOobject.read(), np.uint8)
+#     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+#     face_locations = face_recognition.face_locations(img)
+#     return len(face_locations)
+
+
 shoes = {'кроссовки',
          "ботинки",
          'кеды',
@@ -106,13 +133,13 @@ top = {'свитер',
        'водолазка',
        'пуловер',
        'футболка-поло',
-       'блузка',}
+       'блузка', }
 
 bottom = {'джинсы',
           'брюки',
           'шорты',
           'шорты-плавки',
-          'леггинсы' }
+          'леггинсы'}
 
 
 def check_sex(text: str):
@@ -141,10 +168,13 @@ def check_type(text: str):
             return 'shoes'
     return None
 
+
 def picture_download(pic_linc: str):
-    response = requests.get(pic_linc, proxies={'http': random.sample(proxies, 1)[0]})
+    response = requests.get(
+        pic_linc, proxies={'http': random.sample(proxies, 1)[0]})
     encoded = io.BytesIO(response.content)
     return encoded
+
 
 def add_catalogues(response):
     href_pool = []
@@ -167,7 +197,7 @@ def add_items(response):
         dicted_json = json.loads(soup.find('div', {'id': "data", 'role': "presentation"}).text.replace(
             'window.__PRELOADED_STATE__=', ''))
         items = dicted_json.get('productListStore').get('list')
-        if len(items)==0:
+        if len(items) == 0:
             print("Empty: %s" % str(response.url))
         for item in items:
             product_info = {"image": None, 'цена': None,
@@ -181,12 +211,19 @@ def add_items(response):
                         product_info[prop_name] = prop.get('value')
                 prices = item.get('prices')
                 product_info['цена'] = min([prices[0].get(value) for value in [
-                                        'price', 'personalPrice', 'promoPrice'] if prices[0].get(value) is not None])
+                    'price', 'personalPrice', 'promoPrice'] if prices[0].get(value) is not None])
                 image_props = item.get('images')
-                product_info['image'] = picture_download(
-                    '%s/%s/%s/0/%s.jpg' % (*[image_props.get(value) for value in [
-                                                            'baseUrl', 'client', 'imageGroupId']], image_props.get('sizes').get('big')))
-                image_manager.upload_image_bytes(product_info)
+                image_numbers = image_props.get('sort')
+                pictures_without_faces = []
+                for im_num in image_numbers:
+                    picture = picture_download(
+                        '%s/%s/%s/%s/%s.jpg' % (*[image_props.get(value) for value in [
+                            'baseUrl', 'client', 'imageGroupId']], im_num, image_props.get('sizes').get('big')))
+                    if not face_detect_from_bytes(picture):
+                        pictures_without_faces.append(picture)
+                for picture in pictures_without_faces:
+                    product_info['image'] = picture
+                    image_manager.upload_image_bytes(product_info)
             else:
                 print(item.get('productName'))
 
