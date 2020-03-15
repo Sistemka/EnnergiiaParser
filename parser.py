@@ -233,6 +233,16 @@ def run(site: str, get_proxies: bool = False):
     links_list = add_catalogues(requests.get(site))
     for link in links_list:
         add_items(requests.get(link, proxies={'http': random.sample(proxies, 1)[0]}))
+    while True:
+        try:
+            links_list = []
+            with open('rejected_urls.txt', 'r') as f:
+                links_list = [line.replace('\n', '') for line in f.readlines()]
+            os.remove('rejected_urls.txt')
+            for link in links_list:
+                add_items(requests.get(link, proxies={'http': random.sample(proxies, 1)[0]}))
+        except FileNotFoundError:
+            break
 
 if __name__ == '__main__':
     run(site=site, get_proxies=True)
