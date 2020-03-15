@@ -169,11 +169,15 @@ def check_type(text: str):
     return None
 
 
-def picture_download(pic_linc: str):
-    response = requests.get(
-        pic_linc, proxies={'http': random.sample(proxies, 1)[0]})
-    encoded = io.BytesIO(response.content)
-    return encoded
+def picture_download(pic_linc: list):
+    requests_list = [grequests.get(
+        link, proxies={'http': random.sample(proxies, 1)[0]}) for link in pic_linc]
+    responses = grequests.map(requests_list)
+    try:
+        encoded = [io.BytesIO(response.content) for response in responses if response is not None and response.status_code == 200]
+        return encoded
+    except:
+        return []
 
 
 def add_catalogues(response):
@@ -198,7 +202,8 @@ def add_items(response):
             'window.__PRELOADED_STATE__=', ''))
         items = dicted_json.get('productListStore').get('list')
         if len(items) == 0:
-            print("Empty: %s" % str(response.url))
+            with open('rejected_urls.txt', 'a') as f:
+                f.write(str(response.url)+'\n')
         for item in items:
             product_info = {"image": None, 'цена': None,
                             'пол': None, 'цвет': None, 'бренд': None, 'link': None, 'type': None}
@@ -214,18 +219,13 @@ def add_items(response):
                     'price', 'personalPrice', 'promoPrice'] if prices[0].get(value) is not None])
                 image_props = item.get('images')
                 image_numbers = image_props.get('sort')
-                pictures_without_faces = []
-                for im_num in image_numbers:
-                    picture = picture_download(
-                        '%s/%s/%s/%s/%s.jpg' % (*[image_props.get(value) for value in [
-                            'baseUrl', 'client', 'imageGroupId']], im_num, image_props.get('sizes').get('big')))
+                pictures = picture_download([
+                    '%s/%s/%s/%s/%s.jpg' % (*[image_props.get(value) for value in [
+                        'baseUrl', 'client', 'imageGroupId']], im_num, image_props.get('sizes').get('big')) for im_num in image_numbers])
+                for picture in pictures:
                     if not face_detect_from_bytes(picture):
-                        pictures_without_faces.append(picture)
-                for picture in pictures_without_faces:
-                    product_info['image'] = picture
-                    image_manager.upload_image_bytes(product_info)
-            else:
-                print(item.get('productName'))
+                        product_info['image'] = picture
+                        image_manager.upload_image_bytes(product_info)                    
 
 
 def run(site: str, get_proxies: bool = False):
@@ -237,5 +237,5 @@ def run(site: str, get_proxies: bool = False):
     for response in responses:
         add_items(response)
 
-
-run(site=site, get_proxies=True)
+if __name__ == '__main__':
+    run(site=site, get_proxies=True)
