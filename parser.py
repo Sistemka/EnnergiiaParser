@@ -231,11 +231,8 @@ def add_items(response):
 def run(site: str, get_proxies: bool = False):
     fill_proxies(get_proxies)
     links_list = add_catalogues(requests.get(site))
-    requests_list = [grequests.get(
-        link, proxies={'http': random.sample(proxies, 1)[0]}) for link in links_list]
-    responses = grequests.map(requests_list)
-    for response in responses:
-        add_items(response)
+    for link in links_list:
+        add_items(requests.get(link, proxies={'http': random.sample(proxies, 1)[0]}))
 
 if __name__ == '__main__':
     run(site=site, get_proxies=True)
