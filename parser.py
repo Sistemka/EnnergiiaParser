@@ -81,6 +81,7 @@ def face_detect_from_bytes(bytesIOobject):
     face_cascades = [cv2.CascadeClassifier(os.path.join(
         'models', model_name)) for model_name in os.listdir('models')]
     nparr = np.fromstring(bytesIOobject.read(), np.uint8)
+    bytesIOobject.seek(0)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces_from_all_models = [face_cascade.detectMultiScale(
