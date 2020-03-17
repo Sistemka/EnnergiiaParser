@@ -224,9 +224,11 @@ def add_items(response):
                     '%s/%s/%s/%s/%s.jpg' % (*[image_props.get(value) for value in [
                         'baseUrl', 'client', 'imageGroupId']], im_num, image_props.get('sizes').get('big')) for im_num in image_numbers])
                 for picture in pictures:
-                    if not face_detect_from_bytes(picture):
-                        product_info['image'] = picture
-                        image_manager.upload_image_bytes(product_info)                    
+                    if picture.read():
+                        picture.seek(0)
+                        if not face_detect_from_bytes(picture):
+                            product_info['image'] = picture
+                            image_manager.upload_image_bytes(product_info)                    
 
 
 def run(site: str, get_proxies: bool = False):
