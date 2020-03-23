@@ -103,7 +103,9 @@ def detect_clothes(bytesIOobject):
         mode='mask'
     )
     os.remove(file_name)
-    return [image if 'full' not in image else os.remove(image) for image in cropped_and_full_images]
+    if cropped_and_full_images:
+        return [image if 'full' not in image else os.remove(image) for image in cropped_and_full_images]
+    return []
 
 # def face_detect_from_bytes2(bytesIOobject):
 #     nparr = np.fromstring(bytesIOobject.read(), np.uint8)
