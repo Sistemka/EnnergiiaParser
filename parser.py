@@ -104,7 +104,7 @@ def detect_clothes(bytesIOobject):
     )
     os.remove(file_name)
     if cropped_and_full_images:
-        return [image if 'full' not in image else os.remove(image) for image in cropped_and_full_images]
+        return [img for img in[image if 'full' not in image else os.remove(image) for image in cropped_and_full_images] if img is not None]
     return []
 
 # def face_detect_from_bytes2(bytesIOobject):
@@ -246,6 +246,7 @@ def add_items(response):
                                     product_info['image'] = open(clothes_path, 'rb')
                                     image_manager.upload_image_bytes(product_info)  
                                     os.remove(clothes_path)
+                            break
                                           
 
 
