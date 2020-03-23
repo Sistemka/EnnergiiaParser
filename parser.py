@@ -102,7 +102,7 @@ def detect_clothes(bytesIOobject):
         cropped_images_dir='images',
         mode='mask'
     )
-    os.remove(fil)
+    os.remove(file_name)
     return [image if 'full' not in image else os.remove(image) for image in cropped_and_full_images]
 
 # def face_detect_from_bytes2(bytesIOobject):
