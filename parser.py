@@ -15,7 +15,7 @@ import io
 import base64
 import cv2
 import numpy as np
-from api import image_manager
+from api import image_manager, segmentator
 
 
 proxies = set()
@@ -93,6 +93,17 @@ def face_detect_from_bytes(bytesIOobject):
     ) for face_cascade in face_cascades]
     return len(list(filter(lambda fc: len(fc) != 0, faces_from_all_models))) > 1
 
+def detect_clothes(bytesIOobject):
+    file_name = f'{uuid.uuid4()}.jpg'
+    with open(file_name, 'wb') as f:
+        f.write(bytesIOobject.read())
+    cropped_and_full_images = segmentator.get_files(
+        image_path=file_name,
+        cropped_images_dir='images',
+        mode='mask'
+    )
+    os.remove(fil)
+    return [image if 'full' not in image else os.remove(image) for image in cropped_and_full_images]
 
 # def face_detect_from_bytes2(bytesIOobject):
 #     nparr = np.fromstring(bytesIOobject.read(), np.uint8)
@@ -226,9 +237,14 @@ def add_items(response):
                 for picture in pictures:
                     if picture.read():
                         picture.seek(0)
-                        if not face_detect_from_bytes(picture):
-                            product_info['image'] = picture
-                            image_manager.upload_image_bytes(product_info)                    
+                        clothes_paths = detect_clothes(picture)
+                        if len(clothes_paths) != 0:
+                            for clothes_path in clothes_paths:
+                                if clothes_path:
+                                    product_info['image'] = open(clothes_path, 'rb')
+                                    image_manager.upload_image_bytes(product_info)  
+                                    os.remove(clothes_path)
+                                          
 
 
 def run(site: str, get_proxies: bool = False):
